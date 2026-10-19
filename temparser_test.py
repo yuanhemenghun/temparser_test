@@ -1,7 +1,7 @@
 import re
 
 from string import templatelib
-from typing import Callable, Self, Any
+from typing import Callable, Self, Any, Literal
 from types import GenericAlias
 
 
@@ -9,6 +9,10 @@ def inverse_t_string(template: templatelib.Template):
     return f"t'{''.join(
         ele if isinstance(ele, str) else f"{{{ele.expression}}}" for ele in template
     )}'"
+
+def tranc_str(s: str, length: int, mode: Literal["after", "between"]) -> str:
+    return s if len(s) < length else (s[:length] + "..." if mode == "after"
+                                      else s[:length // 2] + "..." + s[-length // 2:])
 
 
 class Parser[*Ts]:
@@ -30,7 +34,8 @@ class Parser[*Ts]:
     def parse(self, s: str) -> tuple[*Ts]:
         matched_list = self._pattern.fullmatch(s)
         if matched_list is None:
-            raise ValueError(f"字符串无法按照Parser的模板 {inverse_t_string(self.template)} 解析，无效")
+            raise ValueError(f"字符串无法被Parser的模板 {
+                tranc_str(inverse_t_string(self.template), 40, "between")} 所解析，无效")
         return tuple(
             self._convert(inter, matched)
             for inter, matched in zip(self.template.interpolations, matched_list.groups())
@@ -73,11 +78,11 @@ class parser[*Ts](tuple[*Ts]):
 if __name__ == "__main__":
     def remove_percent(percent: str) -> float:
         return float(percent.rstrip("%")) / 100
-    print(a:=parser(
+    print(parser(
         t"aaa {int} bbb {remove_percent} ccc",
         "aaa 111 bbb 50% ccc"
     ))
-    print(a:=parser[int, float](
+    print(parser[int, float](
         t"aaa {int} bbb {remove_percent} ccc",
         "aaa 111 bbb 50% ccc"
     ))
