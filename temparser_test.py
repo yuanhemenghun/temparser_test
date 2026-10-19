@@ -1,7 +1,8 @@
 import re
 
 from string import templatelib
-from typing import Callable
+from typing import Callable, Self, Any
+from types import GenericAlias
 
 
 def inverse_t_string(template: templatelib.Template):
@@ -36,9 +37,15 @@ class Parser[*Ts]:
         )
 
 
-class _TypeDefaultParser[*Ts]:
+class _TypeDefaultParser[*Ts](GenericAlias):
+    def __new__(cls, default_types: tuple[*Ts]) -> Self:
+        return super().__new__(cls, parser, default_types)
+
     def __init__(self, default_types: tuple[*Ts]) -> None:
         self.default_types = default_types
+
+    def __getattr__(self, name: str) -> Any:
+        return object.__getattribute__(self, name)
 
     def __call__(self, template: templatelib.Template, s: str) -> tuple[*Ts]:
         if len(self.default_types) == len(template.interpolations):
@@ -55,22 +62,22 @@ class _TypeDefaultParser[*Ts]:
         return parser(template, s)
 
 
-class parser[*Ts]:
+class parser[*Ts](tuple[*Ts]):
     def __new__(cls, template: templatelib.Template, s: str) -> tuple[*Ts]:
         return Parser[*Ts](template).parse(s)
 
     def __class_getitem__[*_Ts](cls, t: tuple[*_Ts]) -> _TypeDefaultParser[*_Ts]:
-        return _TypeDefaultParser(t)
+        return _TypeDefaultParser[*_Ts](t)
 
 
 if __name__ == "__main__":
     def remove_percent(percent: str) -> float:
         return float(percent.rstrip("%")) / 100
-    print(parser(
+    print(a:=parser(
         t"aaa {int} bbb {remove_percent} ccc",
         "aaa 111 bbb 50% ccc"
     ))
-    print(parser[int, float](
+    print(a:=parser[int, float](
         t"aaa {int} bbb {remove_percent} ccc",
         "aaa 111 bbb 50% ccc"
     ))
